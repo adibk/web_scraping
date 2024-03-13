@@ -4,20 +4,38 @@ from bs4 import BeautifulSoup
 import html
 import pandas as pd
 
-url = "https://www.hellowork.com"
-url_hw_data_analyst = f"{url}/fr-fr/emploi/recherche.html?k=Data+analyst&k_autocomplete=http%3A%2F%2Fwww.rj.com%2FCommun%2FPost%2FAnalyste_donnees&l=Lyon+69000&l_autocomplete=http%3A%2F%2Fwww.rj.com%2Fcommun%2Flocalite%2Fcommune%2F69123#47444193"
+class Hw:
+    def __init__(self, path, file_name, url, working_url, header, cols):
+        self.path = self.make_path(path)
+        self.file_name = file_name
+        self.file_path = self.path + self.file_name
+        
+        self.url = url
+        self.working_url = self.url + working_url
+        self.header = header
+        self.cols = cols
+        
+    def make_path(self, path):
+        foward_slash = ''
+        if path[-1] != '/':
+            foward_slash = '/'
+        return path + foward_slash
+    
+    def display_file_path(self):
+        print(f'File path: {self.file_path}.csv/html\n')
+        
+    def display_working_url(self):
+        print(f'Url: {self.url}\nWorkin on url: {self.working_url}\n')
 
-headers = {
-    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
-    'accept-language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
-    'referer': 'https://www.hellowork.com/fr-fr/emploi.html',
-}
-
-file_name = 'hello_work'
-
-def fetch_data(url):
+    def display_header(self):
+        print('Header of the https request:')
+        for key, value in self.header.items():
+            print(f'{key}: {value}')
+        print()
+            
+def fetch_data(url, header):
     try:
-        response = requests.get(url, timeout=5, headers=headers)
+        response = requests.get(url, timeout=5, headers=header)
         response.raise_for_status()
         response.text
         return response.text
@@ -48,10 +66,10 @@ def clean_html(html_content):
     return clean_text(html.unescape(strip_tags_regex(html_content)))
                
 # Fetch the data from website and put it into html file
-def fetch_and_write_to_file(url, file_name):
-    data = fetch_data(url)
+def fetch_and_write_to_file(url, file_path, header):
+    data = fetch_data(url, header)
     if data != None:
-        with open(f"{file_name}.html", 'w') as html_file:
+        with open(f"{file_path}.html", 'w') as html_file:
             html_file.write(data)
 
 #debugging
@@ -90,7 +108,7 @@ def get_id_from_regex(regex, data):
     print(parse_data(regex, data))
 
 # From multiple regex, get content and put it in a list of dictionary
-def parse_ads(ads):
+def parse_ads(ads, url, cols):
     all_ads = []
     key_regexs = [
                     ('company', '<span data-cy="companyName".*?</span>'),
@@ -101,7 +119,7 @@ def parse_ads(ads):
                     ('salary', '<span data-cy="salaryInfo".*?</span>'),
                     ('posted_date', '<span data-cy="publishDate".*?</span>')
                 ]
-    new_ad['id'] = get_id_from_regex('', ad)
+    # new_ad['id'] = get_id_from_regex('', ad)
     for ad in ads:
         new_ad = {}
         for key_regex in key_regexs:
@@ -111,9 +129,9 @@ def parse_ads(ads):
     return all_ads
     
 # open file and get the html_content form it
-def get_file_data(file_name):
+def get_file_data(file_path):
     data = ""
-    with open(f"{file_name}.html", 'r') as html_file:
+    with open(f"{file_path}.html", 'r') as html_file:
         for line in html_file:
             # print(line, end='')
             data += line
@@ -133,30 +151,18 @@ def get_simple_df(ads):
     data_to_df(temp_cleaned_ads)
 
 # scrap data from local file hello_work.html in production mode
-# change and make request by calling fetch_and_write_to_file(url_hw_data_analyst, 'hello_work') to get the lattest update
-def scrap():
-    # fetch_and_write_to_file(url_hw_data_analyst, 'hello_work')
-    file_data = get_file_data(file_name)
+# change and make request by calling fetch_and_write_to_file(hw.working_url, 'hello_work', hw.header) to get the lattest update
+def scrap(hw):
+    fetch_and_write_to_file(hw.working_url, hw.file_path, hw.header)
+    file_data = get_file_data(hw.file_path)
     ads = parse_data('<div class="offer--content tw-rounded-2xl".*?<div class="highlights__container".*?>', file_data)
-    data = parse_ads(ads)
+    data = parse_ads(ads, hw.url, hw.cols)
     # print(data)
     df = pd.DataFrame(data)
-    df.to_csv(f'{file_name}.csv', index=True)
+    df.to_csv(f'{hw.file_path}.csv', index=True)
     print(df)
     
     # data = get_simple_df(ads)
     # print(data)
     
-def init_main():
-    pass
 
-def exit_main():
-    pass
-    
-def main():
-    init_main()
-    scrap()
-    exit_main()
-    
-if __name__ == "__main__":
-    main()
