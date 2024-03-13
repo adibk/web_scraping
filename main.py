@@ -1,5 +1,5 @@
 from regex import hw_regex as rgx
-# from soup import hellxo_work_soup as sp
+from soup import web_scrapping_final as sp
 
 def init_main():    
     path = 'regex/'
@@ -19,16 +19,36 @@ def init_main():
 def exit_main():
     pass
     
-def main():
-    hw = init_main()
+# use the methode with beautifulsoup by Mathieu in order to scrap data analyst job ads
+def hellowork_methode_soup():
+    df = sp.scrape_hw('soup/emploi_data.csv')
+    print(df)
+
+# use the methode with regex by Adib in order to scrap data analyst job ads
+def hellowork_methode_rgx(hw):
     rgx.scrap(hw)
-    
-    # df = sp.scrap_hw()
-    # print(df)
-    
     hw.display_file_path()
     hw.display_working_url()
     hw.display_header()
+
+def put_separation(sep = '='):
+    print('\n\n' + sep * 150 + '\n\n')
+
+def main():
+    hw = init_main()
+    
+    put_separation()
+    
+    # first methode beautifulsoup
+    hellowork_methode_soup()
+    
+    put_separation()
+    
+    # second methode with regex
+    hellowork_methode_rgx(hw)
+    
+    put_separation()
+    
     exit_main()
     
 if __name__ == "__main__":
