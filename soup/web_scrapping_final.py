@@ -3,7 +3,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
-def scrape_hw():
+def scrape_hw(file_path):
     base_url = 'https://www.hellowork.com/fr-fr/emploi/recherche.html?k=data+analyst&l=lyon&l_autocomplete=lyon&ray=20&cod=all&d=all&page=3&p=1&mode=pagination'
     headers = {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
@@ -42,7 +42,7 @@ def scrape_hw():
                 })
 
     df_emploi = pd.DataFrame(emploi_data)
-    csv_file = 'emploi_data.csv'
+    csv_file = file_path
     df_emploi.to_csv(csv_file, index=False)
     return df_emploi
 

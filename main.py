@@ -21,7 +21,7 @@ def exit_main():
     
 # use the methode with beautifulsoup by Mathieu in order to scrap data analyst job ads
 def hellowork_methode_soup():
-    df = sp.scrape_hw()
+    df = sp.scrape_hw('soup/emploi_data.csv')
     print(df)
 
 # use the methode with regex by Adib in order to scrap data analyst job ads
