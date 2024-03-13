@@ -11,7 +11,7 @@ def init_main():
         'accept-language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
         'referer': 'https://www.hellowork.com/fr-fr/emploi.html',
     }
-    cols = ('company', 'job_title', 'contract', 'location', 'work_type', 'salary', 'posted_date', 'link', 'id')
+    cols = ('id', 'company', 'job_title', 'contract', 'location', 'work_type', 'salary', 'posted_date', 'link')
     
     hw = rgx.Hw(path, file_name, url, working_url, headers, cols)
     return hw

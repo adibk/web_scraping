@@ -105,7 +105,7 @@ def get_link_from_regex(regex, data, pre_url):
 
 # Get ID from regex
 def get_id_from_regex(regex, data):
-    print(parse_data(regex, data))
+    return parse_data(regex, data)[0]
 
 # From multiple regex, get content and put it in a list of dictionary
 def parse_ads(ads, url, cols):
@@ -119,12 +119,14 @@ def parse_ads(ads, url, cols):
                     ('salary', '<span data-cy="salaryInfo".*?</span>'),
                     ('posted_date', '<span data-cy="publishDate".*?</span>')
                 ]
-    # new_ad['id'] = get_id_from_regex('', ad)
+    
     for ad in ads:
         new_ad = {}
+        link = get_link_from_regex('<a class="md:tw-text-xlOld.*?href="(.*?)"', ad, url)
+        new_ad['id'] = get_id_from_regex('/(\d*).html$', link)
         for key_regex in key_regexs:
             new_ad[key_regex[0]] = get_content_from_regex(key_regex[1], ad)
-        new_ad['link'] = get_link_from_regex('<a class="md:tw-text-xlOld.*?href="(.*?)"', ad, url)    
+        new_ad['link'] = link
         all_ads.append(new_ad)    
     return all_ads
     
@@ -153,7 +155,7 @@ def get_simple_df(ads):
 # scrap data from local file hello_work.html in production mode
 # change and make request by calling fetch_and_write_to_file(hw.working_url, 'hello_work', hw.header) to get the lattest update
 def scrap(hw):
-    fetch_and_write_to_file(hw.working_url, hw.file_path, hw.header)
+    # fetch_and_write_to_file(hw.working_url, hw.file_path, hw.header)
     file_data = get_file_data(hw.file_path)
     ads = parse_data('<div class="offer--content tw-rounded-2xl".*?<div class="highlights__container".*?>', file_data)
     data = parse_ads(ads, hw.url, hw.cols)
