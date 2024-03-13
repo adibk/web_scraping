@@ -1,195 +1,158 @@
 import requests
 import re
 from bs4 import BeautifulSoup
-from selenium import webdriver
-import time
-import random
+import html
+import pandas as pd
 
-# url_job_city = "https://www.welcometothejungle.com/en/jobs?refinementList%5Boffices.country_code%5D%5B%5D=FR&query=data%20analyst&page=1&aroundLatLng=45.75917%2C4.82965&aroundRadius=20&aroundQuery="
-# example = 'https://example.com'
-imdb_url = 'https://www.imdb.com/chart/top/'
- 
-def TEST():
-     print('test')
- 
-USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36",
-    # Add more user agents as needed
-]
+url = "https://www.hellowork.com"
+url_hw_data_analyst = f"{url}/fr-fr/emploi/recherche.html?k=Data+analyst&k_autocomplete=http%3A%2F%2Fwww.rj.com%2FCommun%2FPost%2FAnalyste_donnees&l=Lyon+69000&l_autocomplete=http%3A%2F%2Fwww.rj.com%2Fcommun%2Flocalite%2Fcommune%2F69123#47444193"
 
-# List of proxies to rotate
-PROXIES = [
-    "http://proxy1.example.com",
-    "http://proxy2.example.com",
-    # Add more proxies as needed
-]
+headers = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+    'accept-language': 'fr-FR,fr;q=0.9,en-US;q=0.8,en;q=0.7',
+    'referer': 'https://www.hellowork.com/fr-fr/emploi.html',
+}
 
- 
+file_name = 'hello_work'
+
 def fetch_data(url):
-    headers = {
-        "User-Agent": random.choice(USER_AGENTS),
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9",
-        "Accept-Language": "en-US,en;q=0.9",
-        "Referer": "https://www.google.com/",
-        "Sec-Fetch-Dest": "document",
-        "Sec-Fetch-Mode": "navigate",
-        "Sec-Fetch-Site": "none",
-        "Sec-Fetch-User": "?1",
-        "Upgrade-Insecure-Requests": "1"
-    }
-    proxy = {"http": random.choice(PROXIES)}
-
     try:
-        # Get request timeout of 5 seconds
-        response = requests.get(url, timeout=5,  headers=headers, proxies=proxy)
-        
-        # Check the status code
+        response = requests.get(url, timeout=5, headers=headers)
         response.raise_for_status()
         response.text
         return response.text
     except requests.RequestException as e:
-        # errors (e.g., connection refused, timeout exceeded, etc.)
         print(f"An HTTP request error occurred: {e}")
         return None
+
+# strip tag using regex
+def strip_tags_regex(html_content):
+    tag_re = re.compile(r'<[^>]+>')
+    plain_text = tag_re.sub('', html_content)
+    return plain_text
+
+# Not used
+def strip_tags(html_str):
+    # Use BeautifulSoup to parse and extract text without tags
+    soup = BeautifulSoup(html_str, 'html.parser')
+    return soup.get_text()
 
 def clean_str(str):
     return str.replace('\t', '').replace('\n', '').replace('\r', '')
 
-def strip_tags(html_str):
-    # Use BeautifulSoup to parse and extract text without tags
-    soup = BeautifulSoup(html_str, 'html.parser')
-    return soup.get_text()    
+def clean_text(str):
+    clean_lines = [line.strip() for line in str.split('\n') if line.strip()]
+    return '\n'.join(clean_lines)
 
-def find_first(list, sub_str):
-    for i, item in enumerate(list):
-        if item.startswith(sub_str):
-            return i
-    return None
+def clean_html(html_content):
+    return clean_text(html.unescape(strip_tags_regex(html_content)))
+               
+# Fetch the data from website and put it into html file
+def fetch_and_write_to_file(url, file_name):
+    data = fetch_data(url)
+    if data != None:
+        with open(f"{file_name}.html", 'w') as html_file:
+            html_file.write(data)
 
-def parse_data(data, pattern):
-    ret = None
-    # data = "test, <rating> test </d>"
-    pattern = re.compile(rf'{pattern}', re.IGNORECASE)
+#debugging
+def show_special_characters(text):
+    # Replace new lines and tabs with their literal representations
+    text = text.replace("\n", "\\n")
+    text = text.replace("\t", "\\t")
+    return text
+
+# strip content tags and clean and format result
+def get_clean_content(html_content):
+    return clean_html(strip_tags_regex(html_content))
+
+# return matches from regex
+def parse_data(pattern, data):
+    pattern = re.compile(rf'{pattern}', re.DOTALL |  re.IGNORECASE)
     match = re.findall(pattern, data)
+    if match == []:
+        return None
+    return match
+
+# use parse_data() and return None if no results, clean content otherwise
+def get_content_from_regex(regex, data):
+    content = parse_data(regex, data)
+    if (content == None):
+        return None
+    return get_clean_content(content[0])
+
+# Get link from regex
+def get_link_from_regex(regex, data, pre_url):
+    link_from_html = parse_data(regex, data)
+    return pre_url + get_clean_content(link_from_html[0])
+
+# Get ID from regex
+def get_id_from_regex(regex, data):
+    print(parse_data(regex, data))
+
+# From multiple regex, get content and put it in a list of dictionary
+def parse_ads(ads):
+    all_ads = []
+    key_regexs = [
+                    ('company', '<span data-cy="companyName".*?</span>'),
+                    ('job_title', '<h3 class="!tw-mb-0">.*?</h3>'),
+                    ('contract', '<span data-cy="contract".*?</span>'),
+                    ('location', '<span class="tw-text-ellipsis.*?</span>'),
+                    ('work_type', '<span data-cy="teleworkInfo">.*?</span>'),
+                    ('salary', '<span data-cy="salaryInfo".*?</span>'),
+                    ('posted_date', '<span data-cy="publishDate".*?</span>')
+                ]
+    new_ad['id'] = get_id_from_regex('', ad)
+    for ad in ads:
+        new_ad = {}
+        for key_regex in key_regexs:
+            new_ad[key_regex[0]] = get_content_from_regex(key_regex[1], ad)
+        new_ad['link'] = get_link_from_regex('<a class="md:tw-text-xlOld.*?href="(.*?)"', ad, url)    
+        all_ads.append(new_ad)    
+    return all_ads
     
-    if match:
-        ret = [strip_tags(line) for line in match]
-        ret = [line for line in ret if line != '']
-        first = find_first(ret, '1. ')
-        last = find_first(ret, '250. ') + 2
-        if first != None and last != None:
-            ret = ret[first:last]
-        ret = [ret[i:i+2] for i in range(0, len(ret), 2)]
-    else:
-        ret = ['No Info\n']
+# open file and get the html_content form it
+def get_file_data(file_name):
+    data = ""
+    with open(f"{file_name}.html", 'r') as html_file:
+        for line in html_file:
+            # print(line, end='')
+            data += line
+    return data
+
+def data_to_df(data):
+    data = [ad.split('\n') for ad in data]
+    for ad in data:
+        print(ad)
+        
+def parse_simple_ads(ads):
+    ret = [clean_html(line) for line in ads]
     return ret
 
-def get_generated_data(url):
-    options = webdriver.ChromeOptions()
-    options.add_argument('headless')
-    driver = webdriver.Chrome(options=options)
+def get_simple_df(ads):
+    temp_cleaned_ads = parse_simple_ads(ads)
+    data_to_df(temp_cleaned_ads)
 
-    driver.get(url)
-    time.sleep(3) 
-    
-    html = driver.page_source
-    driver.quit()
-    return html
-
-# def get_wttj(city, ctry):
-#     return get_generated_data(url_job_city + f'{city}%2C%20{ctry}')
-
-def data_to_html(data):
-    html_content= """
-    <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Movie List</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        ul {
-            list-style-type: none;
-            padding: 0;
-        }
-        li {
-            margin-bottom: 10px;
-            padding: 10px;
-            background-color: #f0f0f0;
-            border-radius: 5px;
-        }
-        .movie-title {
-            font-weight: bold;
-        }
-        .movie-year {
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-
-<h1>Top 250 Movies</h1>
-
-<ul>
-    """
-    for line in data:
-        html_content += f'<li><span class="movie-title">{line[0]}</span> - <span class="movie-year">{line[1]}</span></li>'
-        # print(line[0], ',', line[1])
-    with open("movies.html", 'w') as html_file:
-        html_file.write(html_content)
-
-    html_content += """
-</ul>
-
-</body>
-</html>
-"""
-
-def parse_img(data):
-    # Parse the HTML
-    soup = BeautifulSoup(data, 'lxml')
-    
-    images = soup.find_all('img')
-    # Print out image info (src and alt attributes)
-    # print(images)
-    # for img in images:
-    #     if img.get('alt', 'Tim Robbins in The Shawshank Redemption (1994)'):
-    #         print(img['src'])
-    # for img in images:
-        # print(f"SRC: {img['src']}, ALT: {img.get('alt', 'No alt attribute')}")
-    # print(images)
-    
-    for i, img in enumerate(images):
-        alt = img.get('alt')
-        if alt == 'Tim Robbins in The Shawshank Redemption (1994)':
-            return i,
-    return 0
-
+# scrap data from local file hello_work.html in production mode
+# change and make request by calling fetch_and_write_to_file(url_hw_data_analyst, 'hello_work') to get the lattest update
 def scrap():
-    pattern = '<.*?title.*?>(.*?)</.*?>'
-    pattern = '<div.*?>(.*?)</.*?>'
+    # fetch_and_write_to_file(url_hw_data_analyst, 'hello_work')
+    file_data = get_file_data(file_name)
+    ads = parse_data('<div class="offer--content tw-rounded-2xl".*?<div class="highlights__container".*?>', file_data)
+    data = parse_ads(ads)
+    # print(data)
+    df = pd.DataFrame(data)
+    df.to_csv(f'{file_name}.csv', index=True)
+    print(df)
     
-    # data = get_generated_data(imdb_url)
-    data = fetch_data(imdb_url)
-    print(data)
-    # return
-    # # # pattern = '<div.*?>(.*?)</.*?>'
-    # # img = parse_img(data)
+    # data = get_simple_df(ads)
+    # print(data)
     
-    # # parsed = strip_tags(data)
-    parsed = parse_data(data, pattern)
-    data_to_html(parsed)
-
 def init_main():
     pass
 
 def exit_main():
     pass
-
+    
 def main():
     init_main()
     scrap()
